@@ -1,0 +1,53 @@
+name: Reusable Terraform Deployment
+
+on:
+  workflow_call:
+    inputs:
+      tf_working_dir:
+        required: true
+        type: string
+    secrets:
+      AWS_ACCESS_KEY_ID:
+        required: true
+      AWS_SECRET_ACCESS_KEY:
+        required: true
+      AWS_REGION:
+        required: true
+      AWS_ROLE_ARN:
+        required: true
+
+jobs:
+  terraform:
+    name: Terraform CI/CD
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Terraform Init
+        run: terraform init
+        working-directory: ${{ inputs.tf_working_dir }}
+
+      - name: Terraform Validate
+        run: terraform validate
+        working-directory: ${{ inputs.tf_working_dir }}
+
+      - name: Terraform Plan
+        run: terraform plan
+        working-directory: ${{ inputs.tf_working_dir }}
+
+      - name: Wait for approval
+        uses: hmarr/auto-approve-action@v3
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+        if: false  # Force manual approval from external workflow
