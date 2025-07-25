@@ -1,0 +1,58 @@
+name: Terraform CI/CD Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: ${{ secrets.AWS_REGION }}
+
+jobs:
+  terraform:
+    name: Terraform Deploy
+    runs-on: ubuntu-latest
+    environment: production
+    defaults:
+      run:
+        shell: bash
+        working-directory: .
+
+    steps:
+      - name: ⬇️ Checkout Repo
+        uses: actions/checkout@v4
+
+      - name: ☁️ Configure AWS Credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: 🔧 Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: 📦 Terraform Init
+        run: terraform init
+
+      - name: 📐 Terraform Format
+        run: terraform fmt -check
+
+      - name: 🧪 Terraform Validate
+        run: terraform validate
+
+      - name: 📜 Terraform Plan
+        id: plan
+        run: terraform plan -out=tfplan
+
+      - name: ✅ Manual Approval
+        uses: trstringer/manual-approval@v1
+        with:
+          secret: ${{ secrets.GITHUB_TOKEN }}
+          environment: production
+          reviewers: ${{ github.actor }}
+
+      - name: 🚀 Terraform Apply
+        run: terraform apply -auto-approve tfplan
